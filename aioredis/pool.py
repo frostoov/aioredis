@@ -305,9 +305,25 @@ class ConnectionsPool(AbcPool):
 
     @property
     def pubsub_channels(self):
-        if self._pubsub_conn and not self._pubsub_conn.closed:
-            return self._pubsub_conn.pubsub_channels
-        return types.MappingProxyType({})
+        pool = self
+
+        class Proxy(collections.Mapping):
+            def __getitem__(self, item):
+                return self.__value[item]
+
+            def __iter__(self):
+                return self.__value.__iter__()
+
+            def __len__(self):
+                return len(self.__value)
+
+            @property
+            def __value(self):
+                if pool._pubsub_conn and not pool._pubsub_conn.closed:
+                    return pool._pubsub_conn.pubsub_channels
+                return types.MappingProxyType({})
+
+        return Proxy()
 
     @property
     def pubsub_patterns(self):
