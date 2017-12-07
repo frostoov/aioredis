@@ -4,7 +4,7 @@ import types
 
 from .connection import create_connection, _PUBSUB_COMMANDS
 from .log import logger
-from .util import parse_url
+from .util import parse_url, MappingAttributeProxy
 from .errors import PoolClosedError
 from .abc import AbcPool
 from .locks import Lock
@@ -305,31 +305,19 @@ class ConnectionsPool(AbcPool):
 
     @property
     def pubsub_channels(self):
-        pool = self
-
-        class Proxy(collections.Mapping):
-            def __getitem__(self, item):
-                return self.__value[item]
-
-            def __iter__(self):
-                return self.__value.__iter__()
-
-            def __len__(self):
-                return len(self.__value)
-
-            @property
-            def __value(self):
-                if pool._pubsub_conn and not pool._pubsub_conn.closed:
-                    return pool._pubsub_conn.pubsub_channels
-                return types.MappingProxyType({})
-
-        return Proxy()
+        def getter():
+            if self._pubsub_conn and not self._pubsub_conn.closed:
+                return self._pubsub_conn.pubsub_channels
+            return types.MappingProxyType({})
+        return MappingAttributeProxy(getter)
 
     @property
     def pubsub_patterns(self):
-        if self._pubsub_conn and not self._pubsub_conn.closed:
-            return self._pubsub_conn.pubsub_patterns
-        return types.MappingProxyType({})
+        def getter():
+            if self._pubsub_conn and not self._pubsub_conn.closed:
+                return self._pubsub_conn.pubsub_patterns
+            return types.MappingProxyType({})
+        return MappingAttributeProxy(getter)
 
     async def acquire(self, command=None, args=()):
         """Acquires a connection from free pool.
